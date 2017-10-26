@@ -68,11 +68,12 @@ namespace nesemu
 			}
 
 #ifdef NESEMU_DEBUG
-			std::cout << opcode->mName << " - " << std::hex << (int)GMemory->ReadByte(mProgramCounter) << "";
+			const char valSymbol = (mCurrentOpcode->mAddressingMode == AddressingMode::Immediate ? '#' : '$');
+			std::cout << opcode->mName << " (" << std::hex << (int)GMemory->ReadByte(mProgramCounter) << ")   ";
 			if (operandLength == 2)
-				std::cout << std::hex << GMemory->ReadWord(mProgramCounter + 1);
+				std::cout << valSymbol << std::hex << (int)GMemory->ReadWord(mProgramCounter + 1);
 			else if(operandLength == 1)
-				std::cout << std::hex << GMemory->ReadByte(mProgramCounter + 1);
+				std::cout << valSymbol << std::hex << (int)GMemory->ReadByte(mProgramCounter + 1);
 			std::cout << std::endl;
 #endif
 
@@ -184,6 +185,17 @@ namespace nesemu
 		return outAddress;
 	}
 
+	void CPU::Branch(const uint8_t& arg_offset)
+	{
+		// TODO: Make "Relative" memory addressing mode
+		const bool negative = (arg_offset & (1 << 7));
+		const uint8_t offset = negative ? ~arg_offset + 1 : arg_offset; // 2's Complement
+		if (negative)
+			mProgramCounter -= offset;
+		else
+			mProgramCounter += offset;
+	}
+
 	void CPU::opcode_notimplemented()
 	{
 		std::cout << "Not implemented: " << mCurrentOpcode->mName << ", at: " << std::hex << mProgramCounter  << std::endl;
@@ -274,12 +286,7 @@ namespace nesemu
 		if (!GetFlags(STATUSFLAG_ZERO))
 		{
 			const uint8_t memVal = GMemory->ReadWord(mCurrentOperandAddress);
-			const bool negative = (memVal & (1 << 7));
-			const uint8_t offset = negative ? ~memVal + 1 : memVal; // 2's Complement
-			if (negative)
-				mProgramCounter -= offset;
-			else
-				mProgramCounter += offset;
+			Branch(memVal);
 		}
 	}
 
@@ -287,7 +294,8 @@ namespace nesemu
 	{
 		if (!GetFlags(STATUSFLAG_NEGATIVE))
 		{
-			mProgramCounter += GMemory->ReadByte(mCurrentOperandAddress);
+			const uint8_t memVal = GMemory->ReadWord(mCurrentOperandAddress);
+			Branch(memVal);
 		}
 	}
 
@@ -340,6 +348,7 @@ namespace nesemu
 		if (!(diff & 0x100))
 			SetFlags(STATUSFLAG_CARRY);
 	}
+
 
 
 #define SET_OPCODE(index,name,func,addrmode,cycles)\

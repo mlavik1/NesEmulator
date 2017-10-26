@@ -70,6 +70,8 @@ namespace nesemu
 		void Reset();
 		void RegisterOpcodes();
 
+		void Branch(const uint8_t& arg_offset);
+
 		/**
 		* Decodes the address of a specified opcode.
 		* @return Actual memory address to use.
@@ -113,7 +115,6 @@ namespace nesemu
 		void opcode_ora();
 		void opcode_asl();
 		void opcode_cmp();
-
 
 	public:
 		CPU();
