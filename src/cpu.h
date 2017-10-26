@@ -49,7 +49,8 @@ namespace nesemu
 		uint16_t mProgramCounter;
 		uint8_t mStackPointer;
 
-		uint16_t mCurrentOpcodeValue;
+		Opcode* mCurrentOpcode;
+		uint16_t mCurrentOperandAddress;
 		int mCurrentCycles = 0;
 
 		uint16_t mNMILabel;
@@ -79,10 +80,12 @@ namespace nesemu
 		void opcode_sei();
 		void opcode_cli();
 		void opcode_cld();
+		void opcode_lda();
 		void opcode_ldx();
 		void opcode_ldy();
-		void opcode_lda();
 		void opcode_sta();
+		void opcode_stx();
+		void opcode_sty();
 		void opcode_inx();
 		void opcode_dey();
 		void opcode_bne();

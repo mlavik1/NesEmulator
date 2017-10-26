@@ -17,7 +17,7 @@ namespace nesemu
 
 	uint16_t Memory::ReadWord(const uint32_t& arg_address)
 	{
-		return mData[arg_address];
+		return *(uint16_t*)&mData[arg_address];
 	}
 
 	void Memory::Read(const uint32_t& arg_address, const size_t& arg_bytes, void* out_dest)
