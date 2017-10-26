@@ -61,7 +61,8 @@ namespace nesemu
 
 		void ClearFlags(statusflag_t flags);
 		void SetFlags(statusflag_t flags);
-		void SetZNFlagsOf(uint8_t arg_value);
+		void SetFlags(statusflag_t flags, bool arg_set);
+		void SetZNFlags(uint16_t arg_value);
 		bool GetFlags(statusflag_t flags);
 
 		Opcode* DecodeOpcode(uint8_t arg_op);
@@ -75,11 +76,20 @@ namespace nesemu
 		**/
 		uint16_t DecodeOperandAddress(const uint16_t arg_addr, AddressingMode arg_addrmode);
 
+		// ***** OPCODES *****
+		// file:///C:/Users/DeepThought/Desktop/NES%20DOCS/Opcodes/6502%20Opcodes.html#TOC
+
 		void opcode_notimplemented();
 		void opcode_jmp();
+
+		// Processor status instructions
 		void opcode_sei();
 		void opcode_cli();
 		void opcode_cld();
+		void opcode_clc();
+		void opcode_sec();
+
+		// Register manipulation instructions
 		void opcode_lda();
 		void opcode_ldx();
 		void opcode_ldy();
@@ -87,10 +97,23 @@ namespace nesemu
 		void opcode_stx();
 		void opcode_sty();
 		void opcode_inx();
+
+		// Register instructions
 		void opcode_dey();
+
+		// Branch
 		void opcode_bne();
 		void opcode_bpl();
 		void opcode_bit();
+
+		// Stack instructions
+		void opcode_txs();
+		void opcode_tsx();
+
+		void opcode_ora();
+		void opcode_asl();
+		void opcode_cmp();
+
 
 	public:
 		CPU();
