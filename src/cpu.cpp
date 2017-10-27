@@ -531,7 +531,7 @@ namespace nesemu
 		SET_OPCODE(0xA6, "LDX", &CPU::opcode_ldx, AddressingMode::ZeroPage, 3);
 		SET_OPCODE(0xA8, "TAY", &CPU::opcode_notimplemented, AddressingMode::Implied, 2);
 		SET_OPCODE(0xA9, "LDA", &CPU::opcode_lda, AddressingMode::Immediate, 2);
-		SET_OPCODE(0xAA, "TAX", &CPU::opcode_notimplemented, AddressingMode::Implied, 2);
+		SET_OPCODE(0xAA, "TAX", &CPU::opcode_tax, AddressingMode::Implied, 2);
 		SET_OPCODE(0xAC, "LDY", &CPU::opcode_ldy, AddressingMode::Absolute, 4);
 		SET_OPCODE(0xAD, "LDA", &CPU::opcode_lda, AddressingMode::Absolute, 4);
 		SET_OPCODE(0xAE, "LDX", &CPU::opcode_ldx, AddressingMode::Absolute, 4);
