@@ -8,6 +8,7 @@ namespace nesemu
 
 	Memory::Memory()
 	{
+		std::fill_n(mData, NESMEM_TOTAL_MEMORY, 0);
 	}
 
 	uint8_t Memory::ReadByte(const uint32_t& arg_address)

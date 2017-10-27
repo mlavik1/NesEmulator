@@ -51,11 +51,14 @@ namespace nesemu
 
 		Opcode* mCurrentOpcode;
 		uint16_t mCurrentOperandAddress;
+		uint16_t mNextOperationAddress;
 		int mCurrentCycles = 0;
 
 		uint16_t mNMILabel;
 		uint16_t mIRQLabel;
 		uint16_t mResetLabel;
+
+		bool mNMI = false;
 
 		Opcode* mOpcodeTable[256];
 
@@ -83,6 +86,8 @@ namespace nesemu
 
 		void opcode_notimplemented();
 		void opcode_jmp();
+		void opcode_jsr();
+		void opcode_rts();
 
 		// Processor status instructions
 		void opcode_sei();
@@ -99,9 +104,11 @@ namespace nesemu
 		void opcode_stx();
 		void opcode_sty();
 		void opcode_inx();
+		void opcode_iny();
 
 		// Register instructions
 		void opcode_dey();
+		void opcode_tax();
 
 		// Branch
 		void opcode_bne();
@@ -120,6 +127,14 @@ namespace nesemu
 		CPU();
 		void Initialise();
 		void Tick();
+		void QueueNMI();
+
+		void StackPush(uint8_t arg_value);
+		uint8_t StackPop();
+
+		inline int GetCurrentFrameCycles() { return mCurrentCycles; }
+
+		const int CPUClockRate = 1789773;
 	};
 }
 

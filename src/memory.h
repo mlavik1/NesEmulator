@@ -10,6 +10,8 @@
 #define NESMEM_ROM_START		0x4020
 #define NESMEM_PRG_START		0x8000
 
+#define MEMLOC_VBLANK			0x2002
+
 namespace nesemu
 {
 	class Memory
