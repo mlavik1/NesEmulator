@@ -96,14 +96,16 @@ namespace nesemu
 
 	void CPU::StackPush(uint8_t arg_value)
 	{
-		GMemory->Write(mStackPointer, &arg_value, sizeof(arg_value));
+		uint16_t stackPtrAddr = mStackPointer + 0x1000;
+		GMemory->Write(stackPtrAddr, &arg_value, sizeof(arg_value));
 		mStackPointer--;
 	}
 
 	uint8_t CPU::StackPop()
 	{
 		mStackPointer++;
-		uint8_t retVal = GMemory->ReadByte(mStackPointer);
+		uint16_t stackPtrAddr = mStackPointer + 0x1000;
+		uint8_t retVal = GMemory->ReadByte(stackPtrAddr);
 		return retVal;
 	}
 
@@ -225,7 +227,7 @@ namespace nesemu
 
 	void CPU::opcode_jmp()
 	{
-		mNextOperationAddress = GMemory->ReadMemoryAddress(mCurrentOperandAddress);
+		mNextOperationAddress = mCurrentOperandAddress; // TODO: does this count as "absolute" addressing mode?
 	}
 
 	void CPU::opcode_jsr()
