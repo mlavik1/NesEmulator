@@ -85,13 +85,25 @@ namespace nesemu
 		}
 	}
 
-	void CPU::QueueNMI()
+	void CPU::Interrupt(InterruptType arg_type)
 	{
-		uint8_t r = mProgramCounter;
-		uint8_t l = mProgramCounter >> 8;
-		StackPush(l);
-		StackPush(r); // TODO: Is the order right??
-		mNMI = true;
+		uint8_t flags = mStatusRegister;
+		flags |= (1 << 5);  // Always 1
+		flags &= ~(1 << 4); // Only 1 if BRK
+
+		StackPush(flags);
+
+		StackPushAddress(mProgramCounter);
+
+		switch (arg_type)
+		{
+		case InterruptType::NMI:
+			mProgramCounter = mNMILabel;
+			break;
+		case InterruptType::IRQ:
+			mProgramCounter = mIRQLabel;
+			break;
+		}
 	}
 
 	void CPU::StackPush(uint8_t arg_value)
@@ -107,6 +119,21 @@ namespace nesemu
 		uint16_t stackPtrAddr = mStackPointer + 0x1000;
 		uint8_t retVal = GMemory->ReadByte(stackPtrAddr);
 		return retVal;
+	}
+
+	void CPU::StackPushAddress(uint16_t arg_addr)
+	{
+		uint8_t r = arg_addr;
+		uint8_t l = arg_addr >> 8;
+		StackPush(l);
+		StackPush(r); // TODO: Is the order right??
+	}
+
+	uint16_t CPU::StackPopAddress()
+	{
+		uint8_t r = StackPop();
+		uint8_t l = StackPop();
+		return (r | (((uint16_t)l) << 8)) + 1;
 	}
 
 	void CPU::ClearFlags(statusflag_t flags)
@@ -233,10 +260,7 @@ namespace nesemu
 	void CPU::opcode_jsr()
 	{
 		const uint16_t addr = mNextOperationAddress - 1;
-		uint8_t r = addr;
-		uint8_t l = addr >> 8;
-		StackPush(l);
-		StackPush(r); // TODO: Is the order right??
+		StackPushAddress(addr);
 
 		//const uint16_t memVal = GMemory->ReadMemoryAddress(mCurrentOperandAddress);
 		mNextOperationAddress = mCurrentOperandAddress; // TODO: does this really count as "absolute" addressing mode? Or maybe immediate?
@@ -244,9 +268,22 @@ namespace nesemu
 
 	void CPU::opcode_rts()
 	{
-		uint8_t r = StackPop();
-		uint8_t l = StackPop();
-		mNextOperationAddress = (r | (((uint16_t)l) << 8)) + 1;
+		mNextOperationAddress = StackPopAddress();
+	}
+
+	void CPU::opcode_brk()
+	{
+		uint8_t flags = mStatusRegister;
+		flags |= (1 << 5);  // Always 1
+		flags |= (1 << 4);  // 1 if BRK
+
+		StackPush(flags);
+
+		mProgramCounter++;
+
+		StackPushAddress(mProgramCounter);
+
+		mProgramCounter = mIRQLabel;
 	}
 
 	void CPU::opcode_sei()
@@ -425,7 +462,7 @@ namespace nesemu
 			mOpcodeTable[i] = nullptr;
 		}
 
-		SET_OPCODE(0x00, "BRK", &CPU::opcode_notimplemented, AddressingMode::Implied, 7);
+		SET_OPCODE(0x00, "BRK", &CPU::opcode_brk, AddressingMode::Implied, 7);
 		SET_OPCODE(0x01, "ORA", &CPU::opcode_ora, AddressingMode::IndirectX, 6);
 		SET_OPCODE(0x05, "ORA", &CPU::opcode_ora, AddressingMode::ZeroPage, 2);
 		SET_OPCODE(0x06, "ASL", &CPU::opcode_asl, AddressingMode::ZeroPage, 5);

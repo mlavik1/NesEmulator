@@ -1,6 +1,8 @@
 #ifndef NESEMU_PPU_H
 #define NESEMU_PPU_H
 
+#include <functional>
+
 // 262 scanlines per frame
 // 1 scanlane = 341 PPU clock cycles
 // 1 CPU cycle = 3 PPU cycles
@@ -19,6 +21,8 @@ namespace nesemu
 		int mPPUCycle = 0;
 		int mScanline = 0;
 
+		std::function<void()> mVBlankCallback;
+
 		const int ScanlinesPerFrame = 262;
 		const int PPUCyclesPerScanline = 341;
 		const int PPUCyclesPerFrame = ScanlinesPerFrame * PPUCyclesPerScanline;
@@ -29,11 +33,11 @@ namespace nesemu
 		void StartVBlank();
 
 	public:
+		const float TicksPerCPUCycle = 2.3f;
+
 		void Tick(int arg_cpucycles);
 
-		bool mNMIQueued = false;
-
-		const float TicksPerCPUCycle = 2.3f;
+		void SetVBlankCallback(std::function<void()> arg_callback);
 	};
 }
 

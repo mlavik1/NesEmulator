@@ -44,5 +44,14 @@ namespace nesemu
 		uint8_t val = 1 << 7;
 		GMemory->Write(MEMLOC_VBLANK, &val, sizeof(val));
 		mVBlank = true;
+		if (mVBlankCallback != nullptr)
+		{
+			mVBlankCallback();
+		}
+	}
+
+	void PPU::SetVBlankCallback(std::function<void()> arg_callback)
+	{
+		mVBlankCallback = arg_callback;
 	}
 }

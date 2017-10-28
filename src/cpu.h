@@ -29,6 +29,11 @@ namespace nesemu
 		Implied
 	};
 
+	enum InterruptType
+	{
+		NMI, IRQ
+	};
+
 	class CPU; // fwd.decl.
 
 	struct Opcode
@@ -58,8 +63,6 @@ namespace nesemu
 		uint16_t mIRQLabel;
 		uint16_t mResetLabel;
 
-		bool mNMI = false;
-
 		Opcode* mOpcodeTable[256];
 
 		void ClearFlags(statusflag_t flags);
@@ -88,6 +91,7 @@ namespace nesemu
 		void opcode_jmp();
 		void opcode_jsr();
 		void opcode_rts();
+		void opcode_brk();
 
 		// Processor status instructions
 		void opcode_sei();
@@ -127,10 +131,12 @@ namespace nesemu
 		CPU();
 		void Initialise();
 		void Tick();
-		void QueueNMI();
+		void Interrupt(InterruptType arg_type);
 
 		void StackPush(uint8_t arg_value);
 		uint8_t StackPop();
+		void StackPushAddress(uint16_t arg_addr);
+		uint16_t StackPopAddress();
 
 		inline int GetCurrentFrameCycles() { return mCurrentCycles; }
 

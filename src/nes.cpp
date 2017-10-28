@@ -18,6 +18,9 @@ namespace nesemu
 		mAPU = new APU();
 		mROM = new ROM();
 
+		std::function<void()> vBlakCallback = [&] {mCPU->Interrupt(InterruptType::NMI); };
+		mPPU->SetVBlankCallback(vBlakCallback);
+
 		bool romLoaded = false;
 		if (mCurrentROM != "")
 		{
@@ -32,12 +35,6 @@ namespace nesemu
 
 	void NES::Update()
 	{
-		if (mPPU->mNMIQueued)
-		{
-			mCPU->QueueNMI(); // TODO: CPU::QueueInterrupt(type)
-			mPPU->mNMIQueued = false; // TODO: accessor function or callback
-		}
-
 		mCPU->Tick();
 
 		int currentFrameCycles = mCPU->GetCurrentFrameCycles();
