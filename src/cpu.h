@@ -115,6 +115,7 @@ namespace nesemu
 		// Register instructions
 		void opcode_dey();
 		void opcode_tax();
+		void opcode_tay();
 		void opcode_cmp();
 		void opcode_cpx();
 		void opcode_cpy();
@@ -123,6 +124,7 @@ namespace nesemu
 		void opcode_bne(); // branch on not equal
 		void opcode_bpl(); // branch on plus (not negative)
 		void opcode_bcs(); // branch on carry set
+		void opcode_bcc(); // branch on carry clear
 
 		void opcode_bit();
 
@@ -134,6 +136,7 @@ namespace nesemu
 		void opcode_asl();
 
 		void opcode_inc();
+		void opcode_dec();
 
 	public:
 		CPU();

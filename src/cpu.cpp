@@ -404,6 +404,13 @@ namespace nesemu
 		SetZNFlags(mRegX);
 	}
 
+	void CPU::opcode_tay()
+	{
+		ClearFlags(STATUSFLAG_NEGATIVE | STATUSFLAG_ZERO);
+		mRegY = mRegA;
+		SetZNFlags(mRegY);
+	}
+
 	void CPU::opcode_cmp()
 	{
 		ClearFlags(STATUSFLAG_CARRY | STATUSFLAG_ZERO | STATUSFLAG_NEGATIVE);
@@ -461,6 +468,15 @@ namespace nesemu
 		}
 	}
 
+	void CPU::opcode_bcc()
+	{
+		if (GetFlags(STATUSFLAG_CARRY))
+		{
+			const uint8_t memVal = GMemory->ReadByte(mCurrentOperandAddress);
+			Branch(memVal);
+		}
+	}
+
 	void CPU::opcode_bit()
 	{
 		uint8_t val = GMemory->ReadByte(mCurrentOperandAddress);
@@ -510,6 +526,14 @@ namespace nesemu
 		SetZNFlags(val);
 	}
 
+	void CPU::opcode_dec()
+	{
+		ClearFlags(STATUSFLAG_NEGATIVE | STATUSFLAG_ZERO);
+		uint8_t val = GMemory->ReadByte(mCurrentOperandAddress);
+		val -= 1;
+		GMemory->Write(mCurrentOperandAddress, &val, sizeof(val));
+		SetZNFlags(val);
+	}
 
 
 #define SET_OPCODE(index,name,func,addrmode,cycles)\
@@ -619,7 +643,7 @@ namespace nesemu
 		SET_OPCODE(0x8D, "STA", &CPU::opcode_sta, AddressingMode::Absolute, 4);
 		SET_OPCODE(0x8E, "STX", &CPU::opcode_stx, AddressingMode::Absolute, 4);
 
-		SET_OPCODE(0x90, "BCC", &CPU::opcode_notimplemented, AddressingMode::Immediate, 2); // TODO: add cycles if branch is taken
+		SET_OPCODE(0x90, "BCC", &CPU::opcode_bcc, AddressingMode::Immediate, 2); // TODO: add cycles if branch is taken
 		SET_OPCODE(0x91, "STA", &CPU::opcode_sta, AddressingMode::IndirectY, 6);
 		SET_OPCODE(0x94, "STY", &CPU::opcode_sty, AddressingMode::ZeroPageX, 4);
 		SET_OPCODE(0x95, "STA", &CPU::opcode_sta, AddressingMode::ZeroPageX, 4);
@@ -635,7 +659,7 @@ namespace nesemu
 		SET_OPCODE(0xA4, "LDY", &CPU::opcode_ldy, AddressingMode::ZeroPage, 3);
 		SET_OPCODE(0xA5, "LDA", &CPU::opcode_lda, AddressingMode::ZeroPage, 3);
 		SET_OPCODE(0xA6, "LDX", &CPU::opcode_ldx, AddressingMode::ZeroPage, 3);
-		SET_OPCODE(0xA8, "TAY", &CPU::opcode_notimplemented, AddressingMode::Implied, 2);
+		SET_OPCODE(0xA8, "TAY", &CPU::opcode_tay, AddressingMode::Implied, 2);
 		SET_OPCODE(0xA9, "LDA", &CPU::opcode_lda, AddressingMode::Immediate, 2);
 		SET_OPCODE(0xAA, "TAX", &CPU::opcode_tax, AddressingMode::Implied, 2);
 		SET_OPCODE(0xAC, "LDY", &CPU::opcode_ldy, AddressingMode::Absolute, 4);
@@ -658,22 +682,22 @@ namespace nesemu
 		SET_OPCODE(0xC1, "CMP", &CPU::opcode_cmp, AddressingMode::IndirectX, 6);
 		SET_OPCODE(0xC4, "CPY", &CPU::opcode_cpy, AddressingMode::ZeroPage, 3);
 		SET_OPCODE(0xC5, "CMP", &CPU::opcode_cmp, AddressingMode::ZeroPage, 3);
-		SET_OPCODE(0xC6, "DEC", &CPU::opcode_notimplemented, AddressingMode::ZeroPage, 5);
+		SET_OPCODE(0xC6, "DEC", &CPU::opcode_dec, AddressingMode::ZeroPage, 5);
 		SET_OPCODE(0xC8, "INY", &CPU::opcode_iny, AddressingMode::Implied, 2);
 		SET_OPCODE(0xC9, "CMP", &CPU::opcode_cmp, AddressingMode::Immediate, 2);
 		SET_OPCODE(0xCA, "DEX", &CPU::opcode_notimplemented, AddressingMode::Implied, 2);
 		SET_OPCODE(0xCC, "CPY", &CPU::opcode_cpy, AddressingMode::Absolute, 4);
 		SET_OPCODE(0xCD, "CMP", &CPU::opcode_cmp, AddressingMode::Absolute, 4);
-		SET_OPCODE(0xCE, "DEC", &CPU::opcode_notimplemented, AddressingMode::Absolute, 6);
+		SET_OPCODE(0xCE, "DEC", &CPU::opcode_dec, AddressingMode::Absolute, 6);
 
 		SET_OPCODE(0xD0, "BNE", &CPU::opcode_bne, AddressingMode::Immediate, 2); // TODO: add cycles if branch is taken
 		SET_OPCODE(0xD1, "CMP", &CPU::opcode_cmp, AddressingMode::IndirectY, 5);
 		SET_OPCODE(0xD5, "CMP", &CPU::opcode_cmp, AddressingMode::ZeroPageX, 4);
-		SET_OPCODE(0xD6, "DEC", &CPU::opcode_notimplemented, AddressingMode::ZeroPageX, 6);
+		SET_OPCODE(0xD6, "DEC", &CPU::opcode_dec, AddressingMode::ZeroPageX, 6);
 		SET_OPCODE(0xD8, "CLD", &CPU::opcode_cld, AddressingMode::Implied, 2);
 		SET_OPCODE(0xD9, "CMP", &CPU::opcode_cmp, AddressingMode::AbsoluteY, 4);
 		SET_OPCODE(0xDD, "CMP", &CPU::opcode_cmp, AddressingMode::AbsoluteX, 4);
-		SET_OPCODE(0xDE, "DEC", &CPU::opcode_notimplemented, AddressingMode::AbsoluteX, 7);
+		SET_OPCODE(0xDE, "DEC", &CPU::opcode_dec, AddressingMode::AbsoluteX, 7);
 
 		SET_OPCODE(0xE0, "CPX", &CPU::opcode_cpx, AddressingMode::Immediate, 2);
 		SET_OPCODE(0xE1, "SBC", &CPU::opcode_notimplemented, AddressingMode::IndirectX, 6);
