@@ -20,6 +20,7 @@ SET(LIB_DIR "${CMAKE_SOURCE_DIR}/lib/Windows/x86")
 TARGET_LINK_LIBRARIES(NesEmulator ${LIB_DIR}/SDL2_image.lib)
 TARGET_LINK_LIBRARIES(NesEmulator ${LIB_DIR}/SDL2main.lib)
 TARGET_LINK_LIBRARIES(NesEmulator ${LIB_DIR}/SDL2.lib)
+TARGET_LINK_LIBRARIES(NesEmulator ${LIB_DIR}/SDL2_mixer.lib)
 
 set (OUT_DIR ${IN_DIR})
 
@@ -35,7 +36,7 @@ IF(${CMAKE_SYSTEM_NAME} MATCHES "Windows")
 
 	file(MAKE_DIRECTORY ${DLL_TO_DBG})
 	file(MAKE_DIRECTORY ${DLL_TO_RELEASE})
-	message(${DLL_TO_DBG})
+	#message(${DLL_TO_DBG})
 	file(MAKE_DIRECTORY ${DLL_TO_DBG})
 	file(GLOB_RECURSE nativeLibsDebug bin/Windows/x86/Debug/*.dll)
 	file(GLOB_RECURSE nativeLibsRelease bin/Windows/x86/Debug/*.dll)

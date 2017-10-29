@@ -16,6 +16,7 @@ namespace nesemu
 {
 	enum AddressingMode
 	{
+		Accumulator,
 		Immediate,	// uses value directly (no memory lookup)
 		ZeroPage,	// first 256 bytes
 		ZeroPageX,
@@ -116,6 +117,8 @@ namespace nesemu
 		void opcode_dey();
 		void opcode_tax();
 		void opcode_tay();
+		void opcode_tya();
+		void opcode_txa();
 		void opcode_cmp();
 		void opcode_cpx();
 		void opcode_cpy();
@@ -134,6 +137,7 @@ namespace nesemu
 
 		void opcode_ora();
 		void opcode_asl();
+		void opcode_and();
 
 		void opcode_inc();
 		void opcode_dec();

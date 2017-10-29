@@ -194,6 +194,7 @@ namespace nesemu
 		uint16_t outAddress = 0;
 		switch (arg_addrmode)
 		{
+		case AddressingMode::Accumulator: // handled in opcode implementations (of ASL, ROL, ROR, LSR)
 		case AddressingMode::Immediate:
 			outAddress = arg_addr;
 			break;
@@ -411,6 +412,20 @@ namespace nesemu
 		SetZNFlags(mRegY);
 	}
 
+	void CPU::opcode_tya()
+	{
+		ClearFlags(STATUSFLAG_NEGATIVE | STATUSFLAG_ZERO);
+		mRegA = mRegY;
+		SetZNFlags(mRegA);
+	}
+
+	void CPU::opcode_txa()
+	{
+		ClearFlags(STATUSFLAG_NEGATIVE | STATUSFLAG_ZERO);
+		mRegA = mRegX;
+		SetZNFlags(mRegA);
+	}
+
 	void CPU::opcode_cmp()
 	{
 		ClearFlags(STATUSFLAG_CARRY | STATUSFLAG_ZERO | STATUSFLAG_NEGATIVE);
@@ -508,13 +523,29 @@ namespace nesemu
 
 	void CPU::opcode_asl()
 	{
-		const uint8_t val = GMemory->ReadByte(mCurrentOperandAddress);
-		uint8_t c = ((1<<7) & val);
-
-		if (c)
-			SetFlags(STATUSFLAG_CARRY);
+		if (mCurrentOpcode->mAddressingMode == AddressingMode::Accumulator)
+		{
+			mRegA << 1;
+			SetFlags(STATUSFLAG_CARRY, (mRegA & 0b10000000));
+			SetZNFlags(mRegA);
+		}
 		else
-			ClearFlags(STATUSFLAG_CARRY);
+		{
+			uint8_t val = GMemory->ReadByte(mCurrentOperandAddress);
+			val << 1;
+			GMemory->Write(mCurrentOperandAddress, &val, sizeof(val));
+			SetFlags(STATUSFLAG_CARRY, (val & 0b10000000));
+			SetZNFlags(val);
+		}
+	}
+
+	void CPU::opcode_and()
+	{
+		uint8_t val = GMemory->ReadByte(mCurrentOperandAddress);
+		mRegA &= val;
+		GMemory->Write(mCurrentOperandAddress, &val, sizeof(val));
+		SetFlags(STATUSFLAG_CARRY, (val & 0b10000000));
+		SetZNFlags(val);
 	}
 
 	void CPU::opcode_inc()
@@ -559,7 +590,7 @@ namespace nesemu
 		SET_OPCODE(0x06, "ASL", &CPU::opcode_asl, AddressingMode::ZeroPage, 5);
 		SET_OPCODE(0x08, "PHP", &CPU::opcode_notimplemented, AddressingMode::Implied, 3);
 		SET_OPCODE(0x09, "ORA", &CPU::opcode_ora, AddressingMode::Immediate, 2);
-		SET_OPCODE(0x0A, "ASL", &CPU::opcode_asl, AddressingMode::Implied, 2); // TODO: Accumulator
+		SET_OPCODE(0x0A, "ASL", &CPU::opcode_asl, AddressingMode::Accumulator, 2);
 		SET_OPCODE(0x0D, "ORA", &CPU::opcode_ora, AddressingMode::Absolute, 4);
 		SET_OPCODE(0x0E, "ASL", &CPU::opcode_asl, AddressingMode::Absolute, 6);
 
@@ -573,24 +604,24 @@ namespace nesemu
 		SET_OPCODE(0x1E, "ASL", &CPU::opcode_asl, AddressingMode::AbsoluteX, 7);
 
 		SET_OPCODE(0x20, "JSR", &CPU::opcode_jsr, AddressingMode::Absolute, 6);
-		SET_OPCODE(0x21, "AND", &CPU::opcode_notimplemented, AddressingMode::IndirectX, 6);
+		SET_OPCODE(0x21, "AND", &CPU::opcode_and, AddressingMode::IndirectX, 6);
 		SET_OPCODE(0x24, "BIT", &CPU::opcode_bit, AddressingMode::ZeroPage, 3);
-		SET_OPCODE(0x25, "AND", &CPU::opcode_notimplemented, AddressingMode::ZeroPage, 2);
+		SET_OPCODE(0x25, "AND", &CPU::opcode_and, AddressingMode::ZeroPage, 2);
 		SET_OPCODE(0x26, "ROL", &CPU::opcode_notimplemented, AddressingMode::ZeroPage, 5);
 		SET_OPCODE(0x28, "PLP", &CPU::opcode_notimplemented, AddressingMode::Implied, 4);
-		SET_OPCODE(0x29, "AND", &CPU::opcode_notimplemented, AddressingMode::Immediate, 2);
-		SET_OPCODE(0x2A, "ROL", &CPU::opcode_notimplemented, AddressingMode::Implied, 2); // TODO: accumulator
+		SET_OPCODE(0x29, "AND", &CPU::opcode_and, AddressingMode::Immediate, 2);
+		SET_OPCODE(0x2A, "ROL", &CPU::opcode_notimplemented, AddressingMode::Accumulator, 2); // TODO: Accumulator
 		SET_OPCODE(0x2C, "BIT", &CPU::opcode_bit, AddressingMode::Absolute, 4);
-		SET_OPCODE(0x2D, "AND", &CPU::opcode_notimplemented, AddressingMode::Absolute, 4);
+		SET_OPCODE(0x2D, "AND", &CPU::opcode_and, AddressingMode::Absolute, 4);
 		SET_OPCODE(0x2E, "ROL", &CPU::opcode_notimplemented, AddressingMode::Absolute, 6);
 
 		SET_OPCODE(0x30, "BMI", &CPU::opcode_notimplemented, AddressingMode::Immediate, 2); // TODO: add cycles if branch is taken
-		SET_OPCODE(0x31, "AND", &CPU::opcode_notimplemented, AddressingMode::IndirectY, 5);
-		SET_OPCODE(0x35, "AND", &CPU::opcode_notimplemented, AddressingMode::ZeroPageX, 3);
+		SET_OPCODE(0x31, "AND", &CPU::opcode_and, AddressingMode::IndirectY, 5);
+		SET_OPCODE(0x35, "AND", &CPU::opcode_and, AddressingMode::ZeroPageX, 3);
 		SET_OPCODE(0x36, "ROL", &CPU::opcode_notimplemented, AddressingMode::ZeroPageX, 6);
 		SET_OPCODE(0x38, "SEC", &CPU::opcode_sec, AddressingMode::Implied, 2);
-		SET_OPCODE(0x39, "AND", &CPU::opcode_notimplemented, AddressingMode::AbsoluteX, 4);
-		SET_OPCODE(0x3D, "AND", &CPU::opcode_notimplemented, AddressingMode::AbsoluteX, 4);
+		SET_OPCODE(0x39, "AND", &CPU::opcode_and, AddressingMode::AbsoluteX, 4);
+		SET_OPCODE(0x3D, "AND", &CPU::opcode_and, AddressingMode::AbsoluteX, 4);
 		SET_OPCODE(0x3E, "ROL", &CPU::opcode_notimplemented, AddressingMode::AbsoluteX, 7);
 
 		SET_OPCODE(0x40, "RTI", &CPU::opcode_rti, AddressingMode::Implied, 6);
@@ -599,7 +630,7 @@ namespace nesemu
 		SET_OPCODE(0x46, "LSR", &CPU::opcode_notimplemented, AddressingMode::ZeroPage, 5);
 		SET_OPCODE(0x48, "PHA", &CPU::opcode_notimplemented, AddressingMode::Implied, 3);
 		SET_OPCODE(0x49, "EOR", &CPU::opcode_notimplemented, AddressingMode::Immediate, 2);
-		SET_OPCODE(0x4A, "LSR", &CPU::opcode_notimplemented, AddressingMode::Implied, 2); // TODO: Accumulator
+		SET_OPCODE(0x4A, "LSR", &CPU::opcode_notimplemented, AddressingMode::Accumulator, 2); // TODO: Accumulator
 		SET_OPCODE(0x4C, "JMP", &CPU::opcode_jmp, AddressingMode::Absolute, 3);
 		SET_OPCODE(0x4D, "EOR", &CPU::opcode_notimplemented, AddressingMode::Absolute, 4);
 		SET_OPCODE(0x4E, "LSR", &CPU::opcode_notimplemented, AddressingMode::Absolute, 6);
@@ -619,7 +650,7 @@ namespace nesemu
 		SET_OPCODE(0x66, "ROR", &CPU::opcode_notimplemented, AddressingMode::ZeroPage, 5);
 		SET_OPCODE(0x68, "PLA", &CPU::opcode_notimplemented, AddressingMode::Implied, 4);
 		SET_OPCODE(0x69, "ADC", &CPU::opcode_adc, AddressingMode::Immediate, 2);
-		SET_OPCODE(0x6A, "ROR", &CPU::opcode_notimplemented, AddressingMode::Implied, 2); // TODO: accumulator
+		SET_OPCODE(0x6A, "ROR", &CPU::opcode_notimplemented, AddressingMode::Accumulator, 2); // TODO: accumulator
 		SET_OPCODE(0x6C, "JMP", &CPU::opcode_notimplemented, AddressingMode::Indirect, 5);
 		SET_OPCODE(0x6D, "ADC", &CPU::opcode_adc, AddressingMode::Absolute, 4);
 		SET_OPCODE(0x6E, "ROR", &CPU::opcode_notimplemented, AddressingMode::Absolute, 6);
@@ -638,7 +669,7 @@ namespace nesemu
 		SET_OPCODE(0x85, "STA", &CPU::opcode_sta, AddressingMode::ZeroPage, 3);
 		SET_OPCODE(0x86, "STX", &CPU::opcode_stx, AddressingMode::ZeroPage, 3);
 		SET_OPCODE(0x88, "DEY", &CPU::opcode_dey, AddressingMode::Implied, 2);
-		SET_OPCODE(0x8A, "TXA", &CPU::opcode_notimplemented, AddressingMode::Implied, 2);
+		SET_OPCODE(0x8A, "TXA", &CPU::opcode_txa, AddressingMode::Implied, 2);
 		SET_OPCODE(0x8C, "STY", &CPU::opcode_sty, AddressingMode::Absolute, 4);
 		SET_OPCODE(0x8D, "STA", &CPU::opcode_sta, AddressingMode::Absolute, 4);
 		SET_OPCODE(0x8E, "STX", &CPU::opcode_stx, AddressingMode::Absolute, 4);
@@ -648,7 +679,7 @@ namespace nesemu
 		SET_OPCODE(0x94, "STY", &CPU::opcode_sty, AddressingMode::ZeroPageX, 4);
 		SET_OPCODE(0x95, "STA", &CPU::opcode_sta, AddressingMode::ZeroPageX, 4);
 		SET_OPCODE(0x96, "STX", &CPU::opcode_stx, AddressingMode::ZeroPageY, 4);
-		SET_OPCODE(0x98, "TYA", &CPU::opcode_notimplemented, AddressingMode::Implied, 2);
+		SET_OPCODE(0x98, "TYA", &CPU::opcode_tya, AddressingMode::Implied, 2);
 		SET_OPCODE(0x99, "STA", &CPU::opcode_sta, AddressingMode::AbsoluteY, 5);
 		SET_OPCODE(0x9A, "TXS", &CPU::opcode_txs, AddressingMode::Implied, 2);
 		SET_OPCODE(0x9D, "STA", &CPU::opcode_sta, AddressingMode::AbsoluteX, 5);
