@@ -91,6 +91,7 @@ namespace nesemu
 		void opcode_jmp();
 		void opcode_jsr();
 		void opcode_rts();
+		void opcode_rti();
 		void opcode_brk();
 
 		// Processor status instructions
@@ -109,14 +110,20 @@ namespace nesemu
 		void opcode_sty();
 		void opcode_inx();
 		void opcode_iny();
+		void opcode_adc();
 
 		// Register instructions
 		void opcode_dey();
 		void opcode_tax();
+		void opcode_cmp();
+		void opcode_cpx();
+		void opcode_cpy();
 
 		// Branch
-		void opcode_bne();
-		void opcode_bpl();
+		void opcode_bne(); // branch on not equal
+		void opcode_bpl(); // branch on plus (not negative)
+		void opcode_bcs(); // branch on carry set
+
 		void opcode_bit();
 
 		// Stack instructions
@@ -125,7 +132,8 @@ namespace nesemu
 
 		void opcode_ora();
 		void opcode_asl();
-		void opcode_cmp();
+
+		void opcode_inc();
 
 	public:
 		CPU();

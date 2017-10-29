@@ -2,6 +2,7 @@
 
 #include "memory.h"
 #include <iostream>
+#include <assert.h>
 
 namespace nesemu
 {
@@ -72,7 +73,7 @@ namespace nesemu
 
 #ifdef NESEMU_DEBUG
 			const char valSymbol = (mCurrentOpcode->mAddressingMode == AddressingMode::Immediate ? '#' : '$');
-			std::cout << opcode->mName << " (" << std::hex << (int)GMemory->ReadByte(mProgramCounter) << ")   ";
+			std::cout << std::hex << (int)mProgramCounter << ": " << opcode->mName << " (" << std::hex << (int)GMemory->ReadByte(mProgramCounter) << ")   ";
 			if (operandLength == 2)
 				std::cout << valSymbol << std::hex << (int)GMemory->ReadWord(mProgramCounter + 1);
 			else if(operandLength == 1)
@@ -87,6 +88,11 @@ namespace nesemu
 
 	void CPU::Interrupt(InterruptType arg_type)
 	{
+		if (GetFlags(STATUSFLAG_INTERRUPT) && arg_type != InterruptType::NMI)
+		{
+			return;
+		}
+
 		uint8_t flags = mStatusRegister;
 		flags |= (1 << 5);  // Always 1
 		flags &= ~(1 << 4); // Only 1 if BRK
@@ -104,6 +110,7 @@ namespace nesemu
 			mProgramCounter = mIRQLabel;
 			break;
 		}
+		SetFlags(STATUSFLAG_INTERRUPT);
 	}
 
 	void CPU::StackPush(uint8_t arg_value)
@@ -133,7 +140,7 @@ namespace nesemu
 	{
 		uint8_t r = StackPop();
 		uint8_t l = StackPop();
-		return (r | (((uint16_t)l) << 8)) + 1;
+		return (r | (((uint16_t)l) << 8));
 	}
 
 	void CPU::ClearFlags(statusflag_t flags)
@@ -200,29 +207,29 @@ namespace nesemu
 			return GMemory->ReadMemoryAddress(arg_addr) + mRegY;
 			break;
 		case AddressingMode::ZeroPage:
-			outAddress = ((uint16_t)0) | (arg_addr >> 8);
+			outAddress = GMemory->ReadByte(arg_addr);
 			break;
 		case AddressingMode::ZeroPageX:
-			outAddress = ((uint16_t)0) | (arg_addr >> 8) + mRegX;
+			outAddress = GMemory->ReadByte(arg_addr + mRegX);
 			break;
 		case AddressingMode::ZeroPageY:
-			outAddress = ((uint16_t)0) | (arg_addr >> 8) + mRegY;
+			outAddress = GMemory->ReadByte(arg_addr + mRegY);
 			break;
 		case AddressingMode::Indirect:
 		{
-			const int addr = GMemory->ReadMemoryAddress(arg_addr);
+			const uint16_t addr = GMemory->ReadByte(arg_addr);
 			outAddress = GMemory->ReadMemoryAddress(addr);
 			break;
 		}
 		case AddressingMode::IndirectX:
 		{
-			const int addr = ((uint16_t)0) | (arg_addr >> 8) + mRegY;
+			const uint16_t addr = GMemory->ReadByte(arg_addr);
 			outAddress = GMemory->ReadMemoryAddress(addr + mRegX);
 			break;
 		}
 		case AddressingMode::IndirectY:
 		{
-			const int addr = ((uint16_t)0) | (arg_addr >> 8) + mRegY;
+			const uint16_t addr = GMemory->ReadByte(arg_addr);
 			outAddress = GMemory->ReadMemoryAddress(addr + mRegY);
 			break;
 		}
@@ -268,7 +275,14 @@ namespace nesemu
 
 	void CPU::opcode_rts()
 	{
+		mNextOperationAddress = StackPopAddress() + 1;
+	}
+
+	void CPU::opcode_rti()
+	{
 		mNextOperationAddress = StackPopAddress();
+		mStatusRegister = StackPop();
+		ClearFlags(STATUSFLAG_INTERRUPT);
 	}
 
 	void CPU::opcode_brk()
@@ -289,11 +303,13 @@ namespace nesemu
 	void CPU::opcode_sei()
 	{
 		mStatusRegister |= STATUSFLAG_INTERRUPT;
+		SetFlags(STATUSFLAG_INTERRUPT);
 	}
 
 	void CPU::opcode_cli()
 	{
 		mStatusRegister &= ~STATUSFLAG_INTERRUPT;
+		ClearFlags(STATUSFLAG_INTERRUPT);
 	}
 
 	void CPU::opcode_cld()
@@ -314,22 +330,22 @@ namespace nesemu
 	void CPU::opcode_lda()
 	{
 		ClearFlags(STATUSFLAG_NEGATIVE | STATUSFLAG_ZERO);
-		SetZNFlags(mRegA);
 		mRegA = GMemory->ReadByte(mCurrentOperandAddress);
+		SetZNFlags(mRegA);
 	}
 
 	void CPU::opcode_ldx()
 	{
 		ClearFlags(STATUSFLAG_NEGATIVE | STATUSFLAG_ZERO);
-		SetZNFlags(mRegX);
 		mRegX = GMemory->ReadByte(mCurrentOperandAddress);
+		SetZNFlags(mRegX);
 	}
 
 	void CPU::opcode_ldy()
 	{
 		ClearFlags(STATUSFLAG_NEGATIVE | STATUSFLAG_ZERO);
-		SetZNFlags(mRegY);
 		mRegY = GMemory->ReadByte(mCurrentOperandAddress);
+		SetZNFlags(mRegY);
 	}
 
 	void CPU::opcode_sta()
@@ -361,6 +377,19 @@ namespace nesemu
 		SetZNFlags(mRegY);
 	}
 
+	void CPU::opcode_adc()
+	{
+		ClearFlags(STATUSFLAG_NEGATIVE | STATUSFLAG_ZERO | STATUSFLAG_CARRY | STATUSFLAG_OVERFLOW);
+
+		uint8_t opVal = GMemory->ReadByte(mCurrentOperandAddress);
+		uint16_t sum = mRegA + opVal + GetFlags(STATUSFLAG_CARRY);
+
+		SetFlags(STATUSFLAG_CARRY, sum & 0b100000000); // unsigned overflow
+		SetFlags(STATUSFLAG_OVERFLOW, (mRegA ^ sum) & (opVal ^ sum) & 0b10000000); // signed overflow: a+b=c, where sign(a) == sign(b) != sign(c)
+		mRegA = static_cast<uint8_t>(sum);
+		SetZNFlags(mRegA);
+	}
+
 	void CPU::opcode_dey()
 	{
 		ClearFlags(STATUSFLAG_NEGATIVE | STATUSFLAG_ZERO);
@@ -375,6 +404,36 @@ namespace nesemu
 		SetZNFlags(mRegX);
 	}
 
+	void CPU::opcode_cmp()
+	{
+		ClearFlags(STATUSFLAG_CARRY | STATUSFLAG_ZERO | STATUSFLAG_NEGATIVE);
+		const uint8_t val = GMemory->ReadByte(mCurrentOperandAddress);
+		const uint16_t diff = mRegA - val;
+		SetZNFlags(diff);
+		if (!(diff & 0x100))
+			SetFlags(STATUSFLAG_CARRY);
+	}
+
+	void CPU::opcode_cpx()
+	{
+		ClearFlags(STATUSFLAG_CARRY | STATUSFLAG_ZERO | STATUSFLAG_NEGATIVE);
+		const uint8_t val = GMemory->ReadByte(mCurrentOperandAddress);
+		const uint16_t diff = mRegX - val;
+		SetZNFlags(diff);
+		if (!(diff & 0x100))
+			SetFlags(STATUSFLAG_CARRY);
+	}
+
+	void CPU::opcode_cpy()
+	{
+		ClearFlags(STATUSFLAG_CARRY | STATUSFLAG_ZERO | STATUSFLAG_NEGATIVE);
+		const uint8_t val = GMemory->ReadByte(mCurrentOperandAddress);
+		const uint16_t diff = mRegY - val;
+		SetZNFlags(diff);
+		if (!(diff & 0x100))
+			SetFlags(STATUSFLAG_CARRY);
+	}
+
 	void CPU::opcode_bne()
 	{
 		if (!GetFlags(STATUSFLAG_ZERO))
@@ -387,6 +446,15 @@ namespace nesemu
 	void CPU::opcode_bpl()
 	{
 		if (!GetFlags(STATUSFLAG_NEGATIVE))
+		{
+			const uint8_t memVal = GMemory->ReadByte(mCurrentOperandAddress);
+			Branch(memVal);
+		}
+	}
+
+	void CPU::opcode_bcs()
+	{
+		if (GetFlags(STATUSFLAG_CARRY))
 		{
 			const uint8_t memVal = GMemory->ReadByte(mCurrentOperandAddress);
 			Branch(memVal);
@@ -433,14 +501,13 @@ namespace nesemu
 			ClearFlags(STATUSFLAG_CARRY);
 	}
 
-	void CPU::opcode_cmp()
+	void CPU::opcode_inc()
 	{
-		ClearFlags(STATUSFLAG_CARRY | STATUSFLAG_ZERO | STATUSFLAG_NEGATIVE);
-		const uint8_t val = GMemory->ReadByte(mCurrentOperandAddress);
-		const uint16_t diff = mRegA - val;
-		SetZNFlags(diff);
-		if (!(diff & 0x100))
-			SetFlags(STATUSFLAG_CARRY);
+		ClearFlags(STATUSFLAG_NEGATIVE | STATUSFLAG_ZERO);
+		uint8_t val = GMemory->ReadByte(mCurrentOperandAddress);
+		val += 1;
+		GMemory->Write(mCurrentOperandAddress, &val, sizeof(val));
+		SetZNFlags(val);
 	}
 
 
@@ -502,7 +569,7 @@ namespace nesemu
 		SET_OPCODE(0x3D, "AND", &CPU::opcode_notimplemented, AddressingMode::AbsoluteX, 4);
 		SET_OPCODE(0x3E, "ROL", &CPU::opcode_notimplemented, AddressingMode::AbsoluteX, 7);
 
-		SET_OPCODE(0x40, "RTI", &CPU::opcode_notimplemented, AddressingMode::Implied, 6);
+		SET_OPCODE(0x40, "RTI", &CPU::opcode_rti, AddressingMode::Implied, 6);
 		SET_OPCODE(0x41, "EOR", &CPU::opcode_notimplemented, AddressingMode::IndirectX, 6);
 		SET_OPCODE(0x45, "EOR", &CPU::opcode_notimplemented, AddressingMode::ZeroPage, 3);
 		SET_OPCODE(0x46, "LSR", &CPU::opcode_notimplemented, AddressingMode::ZeroPage, 5);
@@ -523,23 +590,23 @@ namespace nesemu
 		SET_OPCODE(0x5E, "LSR", &CPU::opcode_notimplemented, AddressingMode::AbsoluteX, 7);
 
 		SET_OPCODE(0x60, "RTS", &CPU::opcode_rts, AddressingMode::Implied, 6);
-		SET_OPCODE(0x61, "ADC", &CPU::opcode_notimplemented, AddressingMode::IndirectX, 6);
-		SET_OPCODE(0x65, "ADC", &CPU::opcode_notimplemented, AddressingMode::ZeroPage, 3);
+		SET_OPCODE(0x61, "ADC", &CPU::opcode_adc, AddressingMode::IndirectX, 6);
+		SET_OPCODE(0x65, "ADC", &CPU::opcode_adc, AddressingMode::ZeroPage, 3);
 		SET_OPCODE(0x66, "ROR", &CPU::opcode_notimplemented, AddressingMode::ZeroPage, 5);
 		SET_OPCODE(0x68, "PLA", &CPU::opcode_notimplemented, AddressingMode::Implied, 4);
-		SET_OPCODE(0x69, "ADC", &CPU::opcode_notimplemented, AddressingMode::Immediate, 2);
+		SET_OPCODE(0x69, "ADC", &CPU::opcode_adc, AddressingMode::Immediate, 2);
 		SET_OPCODE(0x6A, "ROR", &CPU::opcode_notimplemented, AddressingMode::Implied, 2); // TODO: accumulator
 		SET_OPCODE(0x6C, "JMP", &CPU::opcode_notimplemented, AddressingMode::Indirect, 5);
-		SET_OPCODE(0x6D, "ADC", &CPU::opcode_notimplemented, AddressingMode::Absolute, 4);
+		SET_OPCODE(0x6D, "ADC", &CPU::opcode_adc, AddressingMode::Absolute, 4);
 		SET_OPCODE(0x6E, "ROR", &CPU::opcode_notimplemented, AddressingMode::Absolute, 6);
 
 		SET_OPCODE(0x70, "BVS", &CPU::opcode_notimplemented, AddressingMode::Immediate, 2); // TODO: add cycles if branch is taken
-		SET_OPCODE(0x71, "ADC", &CPU::opcode_notimplemented, AddressingMode::IndirectY, 5);
-		SET_OPCODE(0x75, "ADC", &CPU::opcode_notimplemented, AddressingMode::ZeroPageX, 4);
+		SET_OPCODE(0x71, "ADC", &CPU::opcode_adc, AddressingMode::IndirectY, 5);
+		SET_OPCODE(0x75, "ADC", &CPU::opcode_adc, AddressingMode::ZeroPageX, 4);
 		SET_OPCODE(0x76, "ROR", &CPU::opcode_notimplemented, AddressingMode::ZeroPageX, 6);
 		SET_OPCODE(0x78, "SEI", &CPU::opcode_sei, AddressingMode::Implied, 2);
-		SET_OPCODE(0x79, "ADC", &CPU::opcode_notimplemented, AddressingMode::AbsoluteY, 4);
-		SET_OPCODE(0x7D, "ADC", &CPU::opcode_notimplemented, AddressingMode::AbsoluteX, 4);
+		SET_OPCODE(0x79, "ADC", &CPU::opcode_adc, AddressingMode::AbsoluteY, 4);
+		SET_OPCODE(0x7D, "ADC", &CPU::opcode_adc, AddressingMode::AbsoluteX, 4);
 		SET_OPCODE(0x7E, "ROR", &CPU::opcode_notimplemented, AddressingMode::AbsoluteX, 7);
 
 		SET_OPCODE(0x81, "STA", &CPU::opcode_sta, AddressingMode::IndirectX, 6);
@@ -575,7 +642,7 @@ namespace nesemu
 		SET_OPCODE(0xAD, "LDA", &CPU::opcode_lda, AddressingMode::Absolute, 4);
 		SET_OPCODE(0xAE, "LDX", &CPU::opcode_ldx, AddressingMode::Absolute, 4);
 
-		SET_OPCODE(0xB0, "BCS", &CPU::opcode_notimplemented, AddressingMode::Immediate, 2); // TODO: add cycles if branch is taken
+		SET_OPCODE(0xB0, "BCS", &CPU::opcode_bcs, AddressingMode::Immediate, 2); // TODO: add cycles if branch is taken
 		SET_OPCODE(0xB1, "LDA", &CPU::opcode_lda, AddressingMode::IndirectY, 5);
 		SET_OPCODE(0xB4, "LDY", &CPU::opcode_ldy, AddressingMode::ZeroPageX, 4);
 		SET_OPCODE(0xB5, "LDA", &CPU::opcode_lda, AddressingMode::ZeroPageX, 4);
@@ -587,15 +654,15 @@ namespace nesemu
 		SET_OPCODE(0xBD, "LDA", &CPU::opcode_lda, AddressingMode::AbsoluteX, 4);
 		SET_OPCODE(0xBE, "LDX", &CPU::opcode_ldx, AddressingMode::AbsoluteY, 4);
 
-		SET_OPCODE(0xC0, "CPY", &CPU::opcode_notimplemented, AddressingMode::Immediate, 2);
+		SET_OPCODE(0xC0, "CPY", &CPU::opcode_cpy, AddressingMode::Immediate, 2);
 		SET_OPCODE(0xC1, "CMP", &CPU::opcode_cmp, AddressingMode::IndirectX, 6);
-		SET_OPCODE(0xC4, "CPY", &CPU::opcode_notimplemented, AddressingMode::ZeroPage, 3);
+		SET_OPCODE(0xC4, "CPY", &CPU::opcode_cpy, AddressingMode::ZeroPage, 3);
 		SET_OPCODE(0xC5, "CMP", &CPU::opcode_cmp, AddressingMode::ZeroPage, 3);
 		SET_OPCODE(0xC6, "DEC", &CPU::opcode_notimplemented, AddressingMode::ZeroPage, 5);
 		SET_OPCODE(0xC8, "INY", &CPU::opcode_iny, AddressingMode::Implied, 2);
 		SET_OPCODE(0xC9, "CMP", &CPU::opcode_cmp, AddressingMode::Immediate, 2);
 		SET_OPCODE(0xCA, "DEX", &CPU::opcode_notimplemented, AddressingMode::Implied, 2);
-		SET_OPCODE(0xCC, "CPY", &CPU::opcode_notimplemented, AddressingMode::Absolute, 4);
+		SET_OPCODE(0xCC, "CPY", &CPU::opcode_cpy, AddressingMode::Absolute, 4);
 		SET_OPCODE(0xCD, "CMP", &CPU::opcode_cmp, AddressingMode::Absolute, 4);
 		SET_OPCODE(0xCE, "DEC", &CPU::opcode_notimplemented, AddressingMode::Absolute, 6);
 
@@ -608,26 +675,26 @@ namespace nesemu
 		SET_OPCODE(0xDD, "CMP", &CPU::opcode_cmp, AddressingMode::AbsoluteX, 4);
 		SET_OPCODE(0xDE, "DEC", &CPU::opcode_notimplemented, AddressingMode::AbsoluteX, 7);
 
-		SET_OPCODE(0xE0, "CPX", &CPU::opcode_notimplemented, AddressingMode::Immediate, 2);
+		SET_OPCODE(0xE0, "CPX", &CPU::opcode_cpx, AddressingMode::Immediate, 2);
 		SET_OPCODE(0xE1, "SBC", &CPU::opcode_notimplemented, AddressingMode::IndirectX, 6);
-		SET_OPCODE(0xE4, "CPX", &CPU::opcode_notimplemented, AddressingMode::ZeroPage, 3);
+		SET_OPCODE(0xE4, "CPX", &CPU::opcode_cpx, AddressingMode::ZeroPage, 3);
 		SET_OPCODE(0xE5, "SBC", &CPU::opcode_notimplemented, AddressingMode::ZeroPage, 3);
-		SET_OPCODE(0xE6, "INC", &CPU::opcode_notimplemented, AddressingMode::ZeroPage, 5);
+		SET_OPCODE(0xE6, "INC", &CPU::opcode_inc, AddressingMode::ZeroPage, 5);
 		SET_OPCODE(0xE8, "INX", &CPU::opcode_inx, AddressingMode::Implied, 2);
 		SET_OPCODE(0xE9, "SBC", &CPU::opcode_notimplemented, AddressingMode::Immediate, 2);
 		SET_OPCODE(0xEA, "NOP", &CPU::opcode_notimplemented, AddressingMode::Implied, 2);
-		SET_OPCODE(0xEC, "CPX", &CPU::opcode_notimplemented, AddressingMode::Absolute, 4);
+		SET_OPCODE(0xEC, "CPX", &CPU::opcode_cpx, AddressingMode::Absolute, 4);
 		SET_OPCODE(0xED, "SBC", &CPU::opcode_notimplemented, AddressingMode::Absolute, 4);
-		SET_OPCODE(0xEE, "INC", &CPU::opcode_notimplemented, AddressingMode::Absolute, 6);
+		SET_OPCODE(0xEE, "INC", &CPU::opcode_inc, AddressingMode::Absolute, 6);
 
 		SET_OPCODE(0xF0, "BEQ", &CPU::opcode_notimplemented, AddressingMode::Immediate, 2); // TODO: add cycles if branch is taken
 		SET_OPCODE(0xF1, "SBC", &CPU::opcode_notimplemented, AddressingMode::IndirectY, 5);
 		SET_OPCODE(0xF5, "SBC", &CPU::opcode_notimplemented, AddressingMode::ZeroPageX, 4);
-		SET_OPCODE(0xF6, "INC", &CPU::opcode_notimplemented, AddressingMode::ZeroPageX, 6);
+		SET_OPCODE(0xF6, "INC", &CPU::opcode_inc, AddressingMode::ZeroPageX, 6);
 		SET_OPCODE(0xF8, "SED", &CPU::opcode_notimplemented, AddressingMode::Implied, 2);
 		SET_OPCODE(0xF9, "SBC", &CPU::opcode_notimplemented, AddressingMode::AbsoluteY, 4);
 		SET_OPCODE(0xFD, "SBC", &CPU::opcode_notimplemented, AddressingMode::AbsoluteX, 4);
-		SET_OPCODE(0xFE, "INC", &CPU::opcode_notimplemented, AddressingMode::AbsoluteX, 7);
+		SET_OPCODE(0xFE, "INC", &CPU::opcode_inc, AddressingMode::AbsoluteX, 7);
 
 	}
 }
