@@ -1,9 +1,18 @@
 #include "nes.h"
 
 #include "sdl2/SDL.h"
+#include <iostream>
 
 namespace nesemu
 {
+	NES::NES()
+	{
+		if (SDL_Init(SDL_INIT_AUDIO) != 0)
+		{
+			std::cout << "FAILED TO INITIALISE AUDIO" << std::endl;
+		}
+	}
+
 	void NES::SetROM(const char* arg_file)
 	{
 		mCurrentROM = arg_file;

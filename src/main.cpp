@@ -2,6 +2,8 @@
 
 #include "nes.h"
 
+#undef main // TODO
+
 using namespace nesemu;
 
 int main()

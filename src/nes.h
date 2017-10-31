@@ -25,6 +25,7 @@ namespace nesemu
 		int mCycleCounter = 0;
 
 	public:
+		NES();
 		void SetROM(const char* arg_file);
 		void Start();
 		void Update();
