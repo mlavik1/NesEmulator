@@ -51,7 +51,7 @@ namespace nesemu
 			{
 				operandLength = 2;
 			}
-			else if (opcode->mAddressingMode != AddressingMode::Implied)
+			else if (opcode->mAddressingMode != AddressingMode::Implied && opcode->mAddressingMode != AddressingMode::Accumulator)
 			{
 				operandLength = 1;
 			}
@@ -225,13 +225,13 @@ namespace nesemu
 		case AddressingMode::IndirectX:
 		{
 			const uint16_t addr = GMemory->ReadByte(arg_addr);
-			outAddress = GMemory->ReadMemoryAddress(addr + mRegX);
+			outAddress = GMemory->ReadMemoryAddress(addr) + mRegX;
 			break;
 		}
 		case AddressingMode::IndirectY:
 		{
 			const uint16_t addr = GMemory->ReadByte(arg_addr);
-			outAddress = GMemory->ReadMemoryAddress(addr + mRegY);
+			outAddress = GMemory->ReadMemoryAddress(addr) + mRegY;
 			break;
 		}
 		case AddressingMode::Implied:
@@ -525,7 +525,7 @@ namespace nesemu
 	{
 		if (mCurrentOpcode->mAddressingMode == AddressingMode::Accumulator)
 		{
-			mRegA << 1;
+			mRegA = mRegA << 1;
 			SetFlags(STATUSFLAG_CARRY, (mRegA & 0b10000000));
 			SetZNFlags(mRegA);
 		}

@@ -39,13 +39,15 @@ namespace nesemu
 			for (int i = 0; i < samplesThisFrame; i++)
 			{
 				uint8_t b1 = GMemory->ReadByte(0x4002);
-				uint8_t b2 = GMemory->ReadByte(0x4003);
+				uint16_t b2 = GMemory->ReadByte(0x4003);
 
-				uint16_t freqVal = b1 | (b2 << 5);
+				uint16_t freqVal = b1 | ((b2 << 8) & 0b0000011100000000);
 
-				const double freq = (double)freqVal;
+				const double fPulse = (double)freqVal;
+				const double freq = ((1789773.0f) / (16.0f * (fPulse + 1.0f))) - 1.0f;
+				//const double freq = (441.0f + (mTime*4.0f));
 
-				const double f = sin(2.0f * M_PI * (441.0f + (mTime*4.0f)) * mTime);
+				const double f = sin(2.0f * M_PI * (freq) * mTime);
 				const double fRel = (f + 1.0f) / 2.0f;
 				const int iSample = (fRel * 8);
 				
