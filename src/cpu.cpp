@@ -380,10 +380,14 @@ namespace nesemu
 
 	void CPU::opcode_adc()
 	{
+		bool carry = GetFlags(STATUSFLAG_CARRY);
 		ClearFlags(STATUSFLAG_NEGATIVE | STATUSFLAG_ZERO | STATUSFLAG_CARRY | STATUSFLAG_OVERFLOW);
 
 		uint8_t opVal = GMemory->ReadByte(mCurrentOperandAddress);
 		uint16_t sum = mRegA + opVal + GetFlags(STATUSFLAG_CARRY);
+
+		if (carry)
+			sum += 1;
 
 		SetFlags(STATUSFLAG_CARRY, sum & 0b100000000); // unsigned overflow
 		SetFlags(STATUSFLAG_OVERFLOW, (mRegA ^ sum) & (opVal ^ sum) & 0b10000000); // signed overflow: a+b=c, where sign(a) == sign(b) != sign(c)

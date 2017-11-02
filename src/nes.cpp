@@ -27,7 +27,12 @@ namespace nesemu
 		mAPU = new APU();
 		mROM = new ROM();
 
-		std::function<void()> vBlakCallback = [&] {mCPU->Interrupt(InterruptType::NMI); };
+		std::function<void()> vBlakCallback = [&]
+		{
+			uint8_t byte = GMemory->ReadByte(0x2000);
+			if(byte & 0b10000000) // NMI enabled
+				mCPU->Interrupt(InterruptType::NMI);
+		};
 		mPPU->SetVBlankCallback(vBlakCallback);
 
 		bool romLoaded = false;
