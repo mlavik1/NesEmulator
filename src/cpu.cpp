@@ -489,7 +489,7 @@ namespace nesemu
 
 	void CPU::opcode_bcc()
 	{
-		if (GetFlags(STATUSFLAG_CARRY))
+		if (!GetFlags(STATUSFLAG_CARRY))
 		{
 			const uint8_t memVal = GMemory->ReadByte(mCurrentOperandAddress);
 			Branch(memVal);
