@@ -34,14 +34,20 @@ namespace nesemu
 			mTimeLastSample = currTime;
 			for (int i = 0; i < samplesThisFrame; i++)
 			{
+				// *** Combine all the channels
+				// https://wiki.nesdev.com/w/index.php/APU_Mixer
+
 				mSampleWriteBuffer[mSampleWriteBufferPos] = 0;
 
 				const double square1 = GetSquareChannelSampleValue(SquareChannel::One);
 				const double square2 = GetSquareChannelSampleValue(SquareChannel::Two);
 				const double triangle = GetTriangleChannelSampleValue();
-				mSampleWriteBuffer[mSampleWriteBufferPos] += (Sint16)(AMPLITUDE * square1);
-				mSampleWriteBuffer[mSampleWriteBufferPos] += (Sint16)(AMPLITUDE * square2);
-				mSampleWriteBuffer[mSampleWriteBufferPos] += (Sint16)(AMPLITUDE * triangle);
+
+				const double square_out = 0.00752 * (square1 + square2);
+				const double tnd_out = 0.00851 * triangle;
+
+				mSampleWriteBuffer[mSampleWriteBufferPos] += (Sint16)(AMPLITUDE * square_out);
+				mSampleWriteBuffer[mSampleWriteBufferPos] += (Sint16)(AMPLITUDE * tnd_out);
 
 				mSampleWriteBufferPos++;
 
